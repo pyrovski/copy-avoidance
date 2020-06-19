@@ -1,12 +1,20 @@
+/*
+  Sends the input file repeatedly over a TCP socket.
+*/
+
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <signal.h>
 #include <string.h>
 #include <stdio.h>
 #include <sys/sendfile.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <time.h>
+
+#include "tvUtil.h"
 
 #define bail(...) do{fprintf(stderr, __VA_ARGS__); return 1;} while(0)
 #define pbail(...) do{fprintf(stderr, __VA_ARGS__); perror(" "); return 1;} while(0)
@@ -15,7 +23,13 @@
 
 const unsigned short PORT = 9999;
 
+void handler(int sig) {
+  printf("sig: %d\n", sig);
+}
+
 int main(int argc, char ** argv) {
+  signal(SIGPIPE, SIG_IGN);
+
   if (argc != 2) {
     bail("expected a file path\n");
   }
@@ -53,17 +67,28 @@ int main(int argc, char ** argv) {
 
   while (true) {
     socklen_t so_size = sizeof(s_addr);
+    printf("waiting for connections\n");
     int s_fd = accept(sock, (struct sockaddr *)&s_addr, &so_size);
     if (s_fd == -1) {
       pbail("accept failed");
     }
 
-    off_t offset = 0;
-    ssize_t sent = sendfile(s_fd, fd, &offset, statbuf.st_size);
-    if (sent == -1) {
-      pbail("sendfile failed");
+    while (true) {
+      printf("sending %s\n", argv[1]);
+      off_t offset = 0;
+      struct timespec ts_start;
+      clock_gettime(CLOCK_MONOTONIC, &ts_start);
+      ssize_t sent = sendfile(s_fd, fd, &offset, statbuf.st_size);
+      struct timespec ts_end;
+      clock_gettime(CLOCK_MONOTONIC, &ts_end);
+      if (sent == -1) {
+	perror("sendfile failed");
+	break;
+      }
+      const float elapsed = tvDouble(tvDiff(ts_end, ts_start));
+      printf("sent %zd bytes in %fs; %f MiB/s\n",
+	     sent, elapsed, sent / 1024 / 1024 / elapsed);
     }
-    printf("sent %zd\n", sent);
   }
   return 0;
 }

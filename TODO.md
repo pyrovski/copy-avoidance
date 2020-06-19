@@ -1,0 +1,2 @@
+- vmsplice example
+- send() with MSG_ZEROCOPY

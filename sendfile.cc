@@ -8,9 +8,11 @@
 #include <signal.h>
 #include <string.h>
 #include <stdio.h>
+#include <sys/resource.h>
 #include <sys/sendfile.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <time.h>
 
@@ -27,7 +29,7 @@ void handler(int sig) {
   printf("sig: %d\n", sig);
 }
 
-int main(int argc, char ** argv) {
+int main(int argc, char **argv) {
   signal(SIGPIPE, SIG_IGN);
 
   if (argc != 2) {
@@ -57,13 +59,14 @@ int main(int argc, char ** argv) {
   s_addr.sin_addr.s_addr = htonl(INADDR_ANY);
   s_addr.sin_port = htons(PORT);
 
-  if (bind(sock, (struct sockaddr*)&s_addr, sizeof(s_addr)) == -1) {
+  if (bind(sock, (struct sockaddr *)&s_addr, sizeof(s_addr)) == -1) {
     pbail("bind failed");
   }
 
   if (listen(sock, 0) == -1) {
     pbail("listen failed");
   }
+  struct rusage usage1, usage2;
 
   while (true) {
     socklen_t so_size = sizeof(s_addr);
@@ -77,17 +80,25 @@ int main(int argc, char ** argv) {
       printf("sending %s\n", argv[1]);
       off_t offset = 0;
       struct timespec ts_start;
+      if (getrusage(RUSAGE_SELF, &usage1) == -1) {
+        pbail("getrusage failed");
+      }
       clock_gettime(CLOCK_MONOTONIC, &ts_start);
       ssize_t sent = sendfile(s_fd, fd, &offset, statbuf.st_size);
       struct timespec ts_end;
       clock_gettime(CLOCK_MONOTONIC, &ts_end);
-      if (sent == -1) {
-	perror("sendfile failed");
-	break;
+      if (getrusage(RUSAGE_SELF, &usage2) == -1) {
+        pbail("getrusage failed");
       }
-      const float elapsed = tvDouble(tvDiff(ts_end, ts_start));
-      printf("sent %zd bytes in %fs; %f MiB/s\n",
-	     sent, elapsed, sent / 1024 / 1024 / elapsed);
+      if (sent == -1) {
+        perror("sendfile failed");
+        break;
+      }
+      const float elapsed = tsDouble(tsDiff(ts_end, ts_start));
+      printf("sent %zd bytes in %fs; %f MiB/s; user: %fs; system: %fs\n",
+             sent, elapsed, sent / 1024 / 1024 / elapsed,
+             tvDouble(tvDiff(usage2.ru_utime, usage1.ru_utime)),
+             tvDouble(tvDiff(usage2.ru_stime, usage1.ru_stime)));
     }
   }
   return 0;

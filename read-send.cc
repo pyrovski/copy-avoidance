@@ -21,8 +21,8 @@
 
 #include "tvUtil.h"
 
-#define bail(...) do{fprintf(stderr, __VA_ARGS__); return 1;} while(0)
-#define pbail(...) do{fprintf(stderr, __VA_ARGS__); perror(" "); return 1;} while(0)
+#define bail(...) do{fprintf(stderr, __VA_ARGS__); exit(1);} while(0)
+#define pbail(...) do{fprintf(stderr, __VA_ARGS__); perror(" "); exit(1);} while(0)
 
 #define zero(_x) memset(&_x, 0, sizeof(_x))
 
@@ -32,6 +32,9 @@ constexpr uint32_t blocksize = 64 * 1024;
 // TODO: parallelize, pipeline
 // Send `count` bytes from `src_fd` to `socket_dest_fd`, starting from `offset`.
 ssize_t sendfile(int socket_dest_fd, int src_fd, off_t *offset, size_t count) {
+  if (offset != nullptr && lseek(src_fd, *offset, SEEK_SET) == -1) {
+	pbail("lseek failed");
+  }
   std::array<uint8_t, blocksize> buf;
   ssize_t result = 0;
   while (count > 0) {
@@ -45,7 +48,7 @@ ssize_t sendfile(int socket_dest_fd, int src_fd, off_t *offset, size_t count) {
     while (remaining > 0) {
       ssize_t bytes_sent = send(socket_dest_fd, buf.data() + sent, bytes_read - sent, 0);
       if (bytes_sent == -1) {
-	pbail("send failed");
+		pbail("send failed");
       }
       sent += bytes_sent;
       remaining -= bytes_sent;

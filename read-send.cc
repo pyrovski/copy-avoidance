@@ -15,6 +15,9 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <time.h>
+#include <unistd.h>
+
+#include <array>
 
 #include "tvUtil.h"
 
@@ -24,6 +27,33 @@
 #define zero(_x) memset(&_x, 0, sizeof(_x))
 
 const unsigned short PORT = 9999;
+constexpr uint32_t blocksize = 64 * 1024;
+
+// TODO: parallelize, pipeline
+// Send `count` bytes from `src_fd` to `socket_dest_fd`, starting from `offset`.
+ssize_t sendfile(int socket_dest_fd, int src_fd, off_t *offset, size_t count) {
+  std::array<uint8_t, blocksize> buf;
+  ssize_t result = 0;
+  while (count > 0) {
+    ssize_t bytes_read = read(src_fd, buf.data(), blocksize);
+    if (bytes_read == -1) {
+      pbail("read failed");
+    }
+    count -= bytes_read;
+    size_t remaining = bytes_read;
+    size_t sent = 0;
+    while (remaining > 0) {
+      ssize_t bytes_sent = send(socket_dest_fd, buf.data() + sent, bytes_read - sent, 0);
+      if (bytes_sent == -1) {
+	pbail("send failed");
+      }
+      sent += bytes_sent;
+      remaining -= bytes_sent;
+    }
+    result += bytes_read;
+  }
+  return result;
+}
 
 int main(int argc, char **argv) {
   signal(SIGPIPE, SIG_IGN);

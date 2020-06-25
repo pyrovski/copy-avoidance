@@ -12,6 +12,7 @@
 #include <sys/sendfile.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <time.h>
@@ -19,44 +20,92 @@
 
 #include <array>
 
+#include <boost/fiber/buffered_channel.hpp>
+
 #include "tvUtil.h"
 
 #define bail(...) do{fprintf(stderr, __VA_ARGS__); exit(1);} while(0)
 #define pbail(...) do{fprintf(stderr, __VA_ARGS__); perror(" "); exit(1);} while(0)
 
 #define zero(_x) memset(&_x, 0, sizeof(_x))
+#define DL() fprintf(stderr, "%ld: %d\n", syscall(__NR_gettid), __LINE__)
 
 const unsigned short PORT = 9999;
-constexpr uint32_t blocksize = 64 * 1024;
+constexpr size_t BLOCKSIZE = 64 * 1024;
+constexpr size_t NUMBLOCKS = 8;
 
-// TODO: parallelize, pipeline
-// Send `count` bytes from `src_fd` to `socket_dest_fd`, starting from `offset`.
-ssize_t sendfile(int socket_dest_fd, int src_fd, off_t *offset, size_t count) {
-  fprintf(stderr, "naive method\n");
-  if (offset != nullptr && lseek(src_fd, *offset, SEEK_SET) == -1) {
-	pbail("lseek failed");
-  }
-  std::array<uint8_t, blocksize> buf;
-  ssize_t result = 0;
-  while (count > 0) {
-    ssize_t bytes_read = read(src_fd, buf.data(), blocksize);
+using channel_t = boost::fibers::buffered_channel<int>;
+using slot_t = struct {
+  std::array<uint8_t, BLOCKSIZE> block;
+  size_t blocksize;
+};
+
+void t_read(int fd, channel_t &available, channel_t &filled,
+			std::array<slot_t, NUMBLOCKS - 1> &slots, size_t count) {
+  for ( auto slot_index : available ) {
+	if (count <= 0) {
+	  break;
+	}
+	auto &slot = slots[slot_index];
+    ssize_t bytes_read = read(fd, slot.block.data(), BLOCKSIZE);
     if (bytes_read == -1) {
       pbail("read failed");
     }
+	slot.blocksize = bytes_read;
     count -= bytes_read;
-    size_t remaining = bytes_read;
+	filled.push(slot_index);
+  }
+  filled.close();
+}
+
+void t_write(int fd, channel_t &available, channel_t &filled,
+			 std::array<slot_t, NUMBLOCKS - 1> &slots) {
+  for ( auto slot_index : filled ) {
+	auto &slot = slots[slot_index];
+	size_t remaining = slot.blocksize;
     size_t sent = 0;
     while (remaining > 0) {
-      ssize_t bytes_sent = send(socket_dest_fd, buf.data() + sent, bytes_read - sent, 0);
+      ssize_t bytes_sent = send(fd, slot.block.data() + sent,
+								slot.blocksize - sent, 0);
       if (bytes_sent == -1) {
-		pbail("send failed");
+  		pbail("send failed");
       }
       sent += bytes_sent;
       remaining -= bytes_sent;
     }
-    result += bytes_read;
+	slot.blocksize = 0;
+	available.push(slot_index);
   }
-  return result;
+  available.close();
+}
+
+// Send `count` bytes from `src_fd` to `socket_dest_fd`, starting from `offset`.
+ssize_t sendfile(int socket_dest_fd, int src_fd, size_t count) {
+  if (lseek(src_fd, 0, SEEK_SET) == -1) {
+	pbail("lseek failed");
+  }
+
+  std::array<slot_t, NUMBLOCKS - 1> slots;
+
+  // Maintain two buffered channels of block ids.
+  // The reader gets available block ids from the `available` channel
+  // while the writer gets filled block ids from the `filled` channel.
+  // This is really just a thread-safe circular buffer that minimizes
+  // allocations.
+  channel_t available(NUMBLOCKS);
+  channel_t filled(NUMBLOCKS);
+
+  for ( int i = 0; i < NUMBLOCKS - 1; ++i) {
+	available.push(i);
+  }
+
+  std::thread reader(t_read, src_fd, std::ref(available), std::ref(filled),
+					 std::ref(slots), count);
+  std::thread writer(t_write, socket_dest_fd, std::ref(available),
+					 std::ref(filled), std::ref(slots));
+  reader.join();
+  writer.join();  
+  return count;
 }
 
 int main(int argc, char **argv) {
@@ -108,13 +157,12 @@ int main(int argc, char **argv) {
 
     while (true) {
       printf("sending %s\n", argv[1]);
-      off_t offset = 0;
       struct timespec ts_start;
       if (getrusage(RUSAGE_SELF, &usage1) == -1) {
         pbail("getrusage failed");
       }
       clock_gettime(CLOCK_MONOTONIC, &ts_start);
-      ssize_t sent = sendfile(s_fd, fd, &offset, statbuf.st_size);
+      ssize_t sent = sendfile(s_fd, fd, statbuf.st_size);
       struct timespec ts_end;
       clock_gettime(CLOCK_MONOTONIC, &ts_end);
       if (getrusage(RUSAGE_SELF, &usage2) == -1) {

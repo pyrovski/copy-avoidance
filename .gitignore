@@ -3,3 +3,5 @@
 sendfile
 read-send
 read-send-pipeline
+seekable
+seek-client

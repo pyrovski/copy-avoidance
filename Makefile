@@ -13,11 +13,15 @@ read-send: read-send.o tvUtil.o
 req_generated.h: req.fbs
 	flatc -c $^
 
-seekable: CXXFLAGS+=-I$(FLATBUFFER_INC)
-seekable: seekable.o req_generated.h
-	$(CC) -o $@ $(patsubst %.h,,$^) -lboost_context -lboost_fiber -lpthread
+seekable.o: CXXFLAGS+=-I$(FLATBUFFER_INC)
+seekable.o: req_generated.h
 
-seek-client: CXXFLAGS+=-I$(FLATBUFFER_INC)
+seekable: seekable.o 
+	$(CC) -o $@ $^ -lboost_context -lboost_fiber -lpthread
+
+seek-client.o: CXXFLAGS+=-I$(FLATBUFFER_INC)
+seek-client.o: req_generated.h
+
 seek-client: seek-client.o
 	$(CC) -o $@ $^ -lpthread
 
@@ -25,7 +29,7 @@ read-send-pipeline: read-send-pipeline.o tvUtil.o
 	$(CC) -o $@ $^ -lboost_context -lboost_fiber -lpthread
 
 clean:
-	rm -f $(TARGETS) *.o
+	rm -f $(TARGETS) *.o *_generated.h
 
 install:
 	install -d $(INSTALL_DEST)/local/share/seekable

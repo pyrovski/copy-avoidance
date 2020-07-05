@@ -5,3 +5,4 @@ read-send
 read-send-pipeline
 seekable
 seek-client
+*_generated.h

@@ -1,0 +1,8 @@
+namespace Server;
+
+table Req {
+  offset:uint64;
+  size:uint32;
+}
+
+root_type Req;

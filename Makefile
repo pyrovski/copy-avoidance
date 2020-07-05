@@ -1,5 +1,5 @@
 CC=g++
-CXXFLAGS=-g -O3 -std=c++11
+CXXFLAGS=-g -O0 -std=c++11 -I/snap/flatbuffers/current/include -DNDEBUG
 
 TARGETS=sendfile read-send read-send-pipeline seekable seek-client
 
@@ -9,8 +9,11 @@ sendfile: sendfile.o tvUtil.o
 
 read-send: read-send.o tvUtil.o
 
-seekable: seekable.o
-	$(CC) -o $@ $^ -lboost_context -lboost_fiber -lpthread
+req_generated.h: req.fbs
+	flatc -c $^
+
+seekable: seekable.o req_generated.h
+	$(CC) -o $@ $(patsubst %.h,,$^) -lboost_context -lboost_fiber -lpthread
 
 seek-client: seek-client.o
 	$(CC) -o $@ $^ -lboost_context -lboost_fiber -lpthread

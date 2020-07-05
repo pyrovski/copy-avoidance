@@ -1,7 +1,7 @@
 namespace Server;
 
 table Req {
-  offset:uint64;
+  offset:int64;
   size:uint32;
 }
 

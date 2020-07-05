@@ -8,7 +8,7 @@
 using Req = Server::Req;
 
 struct LReq {
-  uint64_t offset;
+  int64_t offset;
   uint32_t size;
 };
 

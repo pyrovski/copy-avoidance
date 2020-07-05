@@ -2,6 +2,7 @@ CC=g++
 CXXFLAGS=-g -O0 -std=c++11 -DNDEBUG
 FLATBUFFER_INC=/snap/flatbuffers/current/include
 TARGETS=sendfile read-send read-send-pipeline seekable seek-client
+INSTALL_DEST=$(HOME)
 
 all: $(TARGETS)
 
@@ -25,3 +26,7 @@ read-send-pipeline: read-send-pipeline.o tvUtil.o
 
 clean:
 	rm -f $(TARGETS) *.o
+
+install:
+	install -d $(INSTALL_DEST)/local/share/seekable
+	install -m 0644 -t $(INSTALL_DEST)/local/share/seekable/ req.fbs

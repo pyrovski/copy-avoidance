@@ -59,10 +59,13 @@ void t_req(int sfd) {
     DLOG("req offset: 0x%" PRIx64 " size: 0x%" PRIx32 "\n", offset,
          (uint32_t)BLOCKSIZE);
     DLOG("sending %d bytes\n", fbb.GetSize());
-    send(sfd, fbb.GetBufferPointer(), fbb.GetSize(), 0);
+    const auto bytesSent = send(sfd, fbb.GetBufferPointer(), fbb.GetSize(), 0);
+    if (bytesSent != fbb.GetSize()) {
+      pbail("send");
+    }
     offset += BLOCKSIZE;
     if (offset + BLOCKSIZE > filesize) {
-      fprintf(stderr, "resetting offset\n");
+      DLOG("resetting offset\n");
       offset = 0;
     }
     fflush(stderr);

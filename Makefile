@@ -1,5 +1,6 @@
 CC=g++
-CXXFLAGS=-g -O0 -std=c++11 -I/snap/flatbuffers/current/include -DNDEBUG
+CXXFLAGS=-g -O0 -std=c++11 -I/snap/flatbuffers/current/include
+#-DNDEBUG
 
 TARGETS=sendfile read-send read-send-pipeline seekable seek-client
 

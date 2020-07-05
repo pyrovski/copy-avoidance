@@ -67,8 +67,8 @@ void t_recv(int fd, int sock_fd, Channel &reqs, off_t filesize) {
   while (true) {
     // read the size field
     std::array<uint8_t, sizeof(uoffset_t)> msgSizeBuf;
-    ssize_t bytesRead =
-        recv(sock_fd, msgSizeBuf.data(), msgSizeBuf.size(), MSG_PEEK);
+    ssize_t bytesRead = recv(sock_fd, msgSizeBuf.data(), msgSizeBuf.size(),
+                             MSG_PEEK | MSG_WAITALL);
     if (bytesRead != msgSizeBuf.size()) {
       bail("partial recv on req %" PRIu64 "; expected %zd, got %zd", count,
            msgSizeBuf.size(), bytesRead);

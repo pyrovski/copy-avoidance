@@ -49,7 +49,7 @@ constexpr int NUMBLOCKS = 64;
 
 using Channel = boost::fibers::buffered_channel<LReq>;
 
-/* TODO: receive requested read size from client, fadvise, read & send via
+/* Receive requested read size from client, fadvise, read & send via
    sendfile().
    Requests will be returned on the wire in the order they were received,
    but fadvise() calls can be issued as soon as we receive a request. We'll have

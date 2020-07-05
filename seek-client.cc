@@ -115,20 +115,28 @@ int main(int argc, char **argv) {
   zero(hints);
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
-  struct addrinfo *info;
-  if (getaddrinfo(argv[1], PORT_STR, &hints, &info) != 0) {
+  struct addrinfo *info_base;
+  if (getaddrinfo(argv[1], PORT_STR, &hints, &info_base) != 0) {
     bail("getaddrinfo");
   }
-  int sfd = socket(info->ai_family, info->ai_socktype, info->ai_protocol);
-  if (sfd == -1) {
-    pbail("socket");
+  struct addrinfo *info;
+  int sfd = -1;
+  for (info = info_base; info != nullptr; info = info->ai_next) {
+    sfd = socket(info->ai_family, info->ai_socktype, info->ai_protocol);
+    if (sfd == -1) {
+      continue;
+    }
+    if (connect(sfd, info->ai_addr, info->ai_addrlen) == -1) {
+      continue;
+    }
+    fprintf(stderr, "connected\n");
+    break;
   }
-  if (connect(sfd, info->ai_addr, info->ai_addrlen) == -1) {
-    pbail("connect");
+  if (info == nullptr) {
+    bail("failed to connect");
   }
-  freeaddrinfo(info);
-  info = nullptr;
-  fprintf(stderr, "connected\n");
+  freeaddrinfo(info_base);
+  info_base = nullptr;
 
   std::thread requester(t_req, sfd);
   std::thread receiver(t_recv, sfd);

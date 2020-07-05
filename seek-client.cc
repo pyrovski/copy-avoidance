@@ -20,7 +20,10 @@
 #include <unistd.h>
 
 #include <array>
+#include <atomic>
 #include <cinttypes>
+#include <condition_variable>
+#include <mutex>
 #include <thread>
 
 #include "flatbuffers/flatbuffers.h"
@@ -46,12 +49,22 @@ const char PORT_STR[] = "9999";
 constexpr size_t BLOCKSIZE = 64 * 1024;
 constexpr int NUMBLOCKS = 64;
 
+int numOutstanding = 0;
+std::mutex mu;
+std::condition_variable cv;
+
 // TODO: limit the number of outstanding requests
 void t_req(int sfd) {
   constexpr uint64_t filesize = 1024 * 1024;
   off_t offset = 0;
   while (true) {
-    // for (int i = 0; i < 10; ++i) {
+    // lock scope
+    {
+      std::unique_lock<std::mutex> lock(mu);
+      while (numOutstanding >= NUMBLOCKS) {
+        cv.wait(lock, []() -> bool { return numOutstanding < NUMBLOCKS; });
+      }
+    }
     // TODO: re-use a buffer for each flatbuffer
     flatbuffers::FlatBufferBuilder fbb;
     auto req = Server::CreateReq(fbb, offset, BLOCKSIZE);
@@ -62,6 +75,10 @@ void t_req(int sfd) {
     const auto bytesSent = send(sfd, fbb.GetBufferPointer(), fbb.GetSize(), 0);
     if (bytesSent != fbb.GetSize()) {
       pbail("send");
+    }
+    {
+      const std::lock_guard<std::mutex> lock(mu);
+      numOutstanding++;
     }
     offset += BLOCKSIZE;
     if (offset + BLOCKSIZE > filesize) {
@@ -75,7 +92,15 @@ void t_req(int sfd) {
 void t_recv(int sfd) {
   while (true) {
     std::array<uint8_t, BLOCKSIZE> buf;
-    recv(sfd, buf.data(), BLOCKSIZE, MSG_WAITALL);
+    const auto bytesRead = recv(sfd, buf.data(), BLOCKSIZE, MSG_WAITALL);
+    if (bytesRead != BLOCKSIZE) {
+      pbail("recv");
+    }
+    {
+      const std::lock_guard<std::mutex> lock(mu);
+      numOutstanding--;
+    }
+    cv.notify_all();
   }
 }
 

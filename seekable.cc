@@ -60,7 +60,6 @@ using Channel = boost::fibers::buffered_channel<LReq>;
 using flatbuffers::uoffset_t;
 
 void t_recv(int fd, int sock_fd, Channel &reqs, off_t filesize) {
-  // TODO: there should be a way to statically check max flatbuffer size
   std::vector<uint8_t> reqBuf;
 
   uint64_t count = 0;
@@ -69,17 +68,24 @@ void t_recv(int fd, int sock_fd, Channel &reqs, off_t filesize) {
     std::array<uint8_t, sizeof(uoffset_t)> msgSizeBuf;
     ssize_t bytesRead = recv(sock_fd, msgSizeBuf.data(), msgSizeBuf.size(),
                              MSG_PEEK | MSG_WAITALL);
-    if (bytesRead != msgSizeBuf.size()) {
+    if (bytesRead == -1) {
+      pbail("recv");
+    } else if (bytesRead != msgSizeBuf.size()) {
       bail("partial recv on req %" PRIu64 "; expected %zd, got %zd", count,
            msgSizeBuf.size(), bytesRead);
     }
     const uoffset_t msgSize =
         flatbuffers::ReadScalar<uoffset_t>(msgSizeBuf.data());
+    DLOG("incoming message size: %d (not including %zd-byte prefix)\n", msgSize,
+         sizeof(uoffset_t));
     const size_t totalSize = msgSize + sizeof(uoffset_t);
-    DLOG("receiving %zd bytes\n", totalSize);
+    DLOG("receiving %zd bytes (including %zd-byte prefix)\n", totalSize,
+         sizeof(uoffset_t));
     reqBuf.resize(totalSize);
     bytesRead = recv(sock_fd, &reqBuf[0], reqBuf.size(), MSG_WAITALL);
-    if (bytesRead != reqBuf.size()) {
+    if (bytesRead == -1) {
+      pbail("recv");
+    } else if (bytesRead != reqBuf.size()) {
       bail("partial recv");
     }
     const auto *req = Server::GetSizePrefixedReq(reqBuf.data());

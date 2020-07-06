@@ -1,5 +1,5 @@
 CC=g++
-CXXFLAGS=-g -O0 -std=c++11 -DNDEBUG
+CXXFLAGS=-g -O3 -std=c++11 -DNDEBUG
 FLATBUFFER_INC=/snap/flatbuffers/current/include
 TARGETS=sendfile read-send read-send-pipeline seekable seek-client
 INSTALL_DEST=$(HOME)

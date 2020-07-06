@@ -22,7 +22,7 @@
 #include <cinttypes>
 #include <thread>
 
-#include <boost/fiber/buffered_channel.hpp>
+#include <cppchannel/channel>
 
 #include "flatbuffers/flatbuffers.h"
 #include "log.h"
@@ -47,7 +47,7 @@ const unsigned short PORT = 9999;
 constexpr size_t BLOCKSIZE = 64 * 1024;
 constexpr int NUMBLOCKS = 64;
 
-using Channel = boost::fibers::buffered_channel<LReq>;
+using Channel = cpp::channel<LReq, NUMBLOCKS>;
 
 /* Receive requested read size from client, fadvise, read & send via
    sendfile().
@@ -100,13 +100,14 @@ void t_recv(int fd, int sock_fd, Channel &reqs, off_t filesize) {
       pbail("fadvise");
     }
     LReq lreq{.offset = req->offset(), .size = req->size()};
-    reqs.push(lreq);
+    reqs.send(lreq);
     count++;
   }
 }
 
 void t_read(int fd, int sock_fd, Channel &reqs) {
-  for (auto req : reqs) {
+  while (true) {
+    auto req = reqs.recv();
     off_t offset = req.offset;
     size_t size = req.size;
     size_t remaining = req.size;
@@ -122,7 +123,7 @@ void t_read(int fd, int sock_fd, Channel &reqs) {
 }
 
 void serve(int socket_dest_fd, int src_fd, off_t filesize) {
-  Channel reqs(NUMBLOCKS);
+  Channel reqs;
   std::thread reader(t_read, src_fd, socket_dest_fd, std::ref(reqs));
   std::thread receiver(t_recv, src_fd, socket_dest_fd, std::ref(reqs),
                        filesize);

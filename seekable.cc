@@ -90,7 +90,7 @@ void t_recv(int fd, int sock_fd, Channel &reqs, off_t filesize) {
     }
     const auto *req = Server::GetSizePrefixedReq(reqBuf.data());
     if (req->offset() + req->size() > filesize) {
-      fprintf(stderr, "invalid read requested");
+      fprintf(stderr, "invalid read requested\n");
       continue;
     }
     DLOG("req offset: 0x%" PRIx64 " size: 0x%" PRIx32 "\n", req->offset(),

@@ -89,12 +89,19 @@ void t_recv(int fd, int sock_fd, Channel &reqs, off_t filesize) {
       bail("partial recv");
     }
     const auto *req = Server::GetSizePrefixedReq(reqBuf.data());
-    if (req->offset() + req->size() > filesize) {
-      fprintf(stderr, "invalid read requested\n");
-      continue;
+    flatbuffers::Verifier verifier(reqBuf.data(), reqBuf.size());
+    if (!Server::VerifySizePrefixedReqBuffer(verifier)) {
+      bail("invalid flatbuffer");
     }
     DLOG("req offset: 0x%" PRIx64 " size: 0x%" PRIx32 "\n", req->offset(),
          req->size());
+    if (req->offset() + req->size() > filesize) {
+      fprintf(stderr,
+              "invalid read requested; filesize: %zd, offset: %" PRId64
+              ", request size: %" PRIu32 "\n",
+              filesize, req->offset(), req->size());
+      continue;
+    }
     // TODO: evaluate POSIX_FADV_WILLNEED
     if (posix_fadvise(fd, req->offset(), req->size(), POSIX_FADV_SEQUENTIAL)) {
       pbail("fadvise");

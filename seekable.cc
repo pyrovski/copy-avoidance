@@ -119,7 +119,6 @@ void t_read(int fd, int sock_fd, Channel &reqs) {
     size_t size = req.size;
     size_t remaining = req.size;
     while (remaining > 0) {
-      // TODO: test mmap+send performance
       ssize_t sent = sendfile(sock_fd, fd, &offset, size);
       if (sent == -1) {
         pbail("sendfile failed");

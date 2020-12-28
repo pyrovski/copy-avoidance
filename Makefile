@@ -3,7 +3,7 @@ CC=${CXX}
 CXXFLAGS=-g -O3 -std=c++11 -DNDEBUG
 FLATBUFFER_INC=/snap/flatbuffers/current/include
 CHANNEL_INC=/usr/local/include/cppchannel
-TARGETS=sendfile read-send read-send-pipeline seekable seek-client mmap
+TARGETS=sendfile read-send read-send-pipeline seekable seek-client mmap mmap_crc32
 INSTALL_DEST=$(HOME)
 
 all: $(TARGETS)
@@ -33,6 +33,11 @@ read-send-pipeline: read-send-pipeline.o tvUtil.o
 mmap.o: CXXFLAGS+=-I$(FLATBUFFER_INC) -I$(CHANNEL_INC)
 mmap.o: req_generated.h
 mmap: mmap.o tvUtil.o
+	$(CC) -o $@ $^ -lpthread -latomic
+
+mmap_crc32.o: CXXFLAGS+=-I$(FLATBUFFER_INC) -I$(CHANNEL_INC)
+mmap_crc32.o: req_generated.h
+mmap_crc32: mmap_crc32.o tvUtil.o crcutil_blockword.o
 	$(CC) -o $@ $^ -lpthread -latomic
 
 clean:

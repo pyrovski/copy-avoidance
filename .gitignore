@@ -7,3 +7,4 @@ seekable
 seek-client
 *_generated.h
 mmap
+mmap_crc32

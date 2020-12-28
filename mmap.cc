@@ -9,6 +9,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/resource.h>
 #include <sys/sendfile.h>
 #include <sys/socket.h>
@@ -18,7 +19,6 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
-#include <sys/mman.h>
 
 #include <array>
 #include <cinttypes>
@@ -30,17 +30,17 @@
 #include "log.h"
 #include "wire.h"
 
-#define bail(...)                                                              \
-  do {                                                                         \
-    fprintf(stderr, __VA_ARGS__);                                              \
-    fprintf(stderr, "\n");                                                     \
-    exit(1);                                                                   \
+#define bail(...)                 \
+  do {                            \
+    fprintf(stderr, __VA_ARGS__); \
+    fprintf(stderr, "\n");        \
+    exit(1);                      \
   } while (0)
-#define pbail(...)                                                             \
-  do {                                                                         \
-    fprintf(stderr, __VA_ARGS__);                                              \
-    perror(" ");                                                               \
-    exit(1);                                                                   \
+#define pbail(...)                \
+  do {                            \
+    fprintf(stderr, __VA_ARGS__); \
+    perror(" ");                  \
+    exit(1);                      \
   } while (0)
 
 #define zero(_x) memset(&_x, 0, sizeof(_x))
@@ -103,7 +103,8 @@ void t_recv(void *fmap, int sock_fd, Channel &reqs, off_t filesize) {
               filesize, req->offset(), req->size());
       continue;
     }
-    if (madvise(static_cast<uint8_t*>(fmap) + req->offset(), req->size(), MADV_SEQUENTIAL)) {
+    if (madvise(static_cast<uint8_t *>(fmap) + req->offset(), req->size(),
+                MADV_SEQUENTIAL)) {
       pbail("madvise");
     }
     LReq lreq{.offset = req->offset(), .size = req->size()};
@@ -119,7 +120,8 @@ void t_read(void *fmap, int sock_fd, Channel &reqs) {
     size_t size = req.size;
     size_t remaining = req.size;
     while (remaining > 0) {
-      ssize_t sent = send(sock_fd, static_cast<uint8_t*>(fmap) + offset, size, 0);
+      ssize_t sent =
+          send(sock_fd, static_cast<uint8_t *>(fmap) + offset, size, 0);
       if (sent == -1) {
         pbail("send failed");
       }
@@ -132,8 +134,7 @@ void t_read(void *fmap, int sock_fd, Channel &reqs) {
 void serve(int socket_dest_fd, void *fmap, off_t filesize) {
   Channel reqs;
   std::thread reader(t_read, fmap, socket_dest_fd, std::ref(reqs));
-  std::thread receiver(t_recv, fmap, socket_dest_fd, std::ref(reqs),
-                       filesize);
+  std::thread receiver(t_recv, fmap, socket_dest_fd, std::ref(reqs), filesize);
   reader.join();
   receiver.join();
 }

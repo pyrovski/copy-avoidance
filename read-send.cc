@@ -1,5 +1,6 @@
 /*
-  Sends the entire input file repeatedly over a TCP socket, using read() + send().
+  Sends the entire input file repeatedly over a TCP socket, using read() +
+  send().
 */
 
 #include <arpa/inet.h>
@@ -21,16 +22,16 @@
 
 #include "tvUtil.h"
 
-#define bail(...)                                                              \
-  do {                                                                         \
-    fprintf(stderr, __VA_ARGS__);                                              \
-    exit(1);                                                                   \
+#define bail(...)                 \
+  do {                            \
+    fprintf(stderr, __VA_ARGS__); \
+    exit(1);                      \
   } while (0)
-#define pbail(...)                                                             \
-  do {                                                                         \
-    fprintf(stderr, __VA_ARGS__);                                              \
-    perror(" ");                                                               \
-    exit(1);                                                                   \
+#define pbail(...)                \
+  do {                            \
+    fprintf(stderr, __VA_ARGS__); \
+    perror(" ");                  \
+    exit(1);                      \
   } while (0)
 
 #define zero(_x) memset(&_x, 0, sizeof(_x))

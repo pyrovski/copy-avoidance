@@ -29,17 +29,17 @@
 #include "log.h"
 #include "wire.h"
 
-#define bail(...)                                                              \
-  do {                                                                         \
-    fprintf(stderr, __VA_ARGS__);                                              \
-    fprintf(stderr, "\n");                                                     \
-    exit(1);                                                                   \
+#define bail(...)                 \
+  do {                            \
+    fprintf(stderr, __VA_ARGS__); \
+    fprintf(stderr, "\n");        \
+    exit(1);                      \
   } while (0)
-#define pbail(...)                                                             \
-  do {                                                                         \
-    fprintf(stderr, __VA_ARGS__);                                              \
-    perror(" ");                                                               \
-    exit(1);                                                                   \
+#define pbail(...)                \
+  do {                            \
+    fprintf(stderr, __VA_ARGS__); \
+    perror(" ");                  \
+    exit(1);                      \
   } while (0)
 
 #define zero(_x) memset(&_x, 0, sizeof(_x))

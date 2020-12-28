@@ -1,5 +1,7 @@
 /*
-  Sends the input file repeatedly over a TCP socket.
+  Sends the entire input file repeatedly over a TCP socket.
+  One thread reads 64-kiB blocks from the file while another thread sends
+  blocks over the network.
 */
 
 #include <arpa/inet.h>

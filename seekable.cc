@@ -1,5 +1,6 @@
 /*
-  Sends the input file repeatedly over a TCP socket.
+  Sends requested blocks from the input file repeatedly over a TCP socket.
+  Uses sendfile().
 */
 
 #include <arpa/inet.h>

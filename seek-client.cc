@@ -1,5 +1,6 @@
 /*
-  Sends the input file repeatedly over a TCP socket.
+  Requests and receives input over a TCP socket and discards it.
+  Assumes the source file is 1 GiB.
 */
 
 #include <arpa/inet.h>
@@ -53,9 +54,8 @@ int numOutstanding = 0;
 std::mutex mu;
 std::condition_variable cv;
 
-// TODO: limit the number of outstanding requests
 void t_req(int sfd) {
-  constexpr uint64_t filesize = 1024 * 1024;
+  constexpr uint64_t filesize = 1024 * 1024 * 1024;
   off_t offset = 0;
   while (true) {
     // lock scope

@@ -8,3 +8,4 @@ seek-client
 *_generated.h
 mmap
 mmap_crc32
+mmap_per_read

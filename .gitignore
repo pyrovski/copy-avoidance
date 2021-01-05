@@ -9,3 +9,4 @@ seek-client
 mmap
 mmap_crc32
 mmap_per_read
+TAGS
